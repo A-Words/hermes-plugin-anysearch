@@ -93,6 +93,22 @@ class VerticalTests(unittest.TestCase):
                 self.run_cli(argv)
             self.assertEqual(error.exception.code, 2)
 
+    def test_tagged_search_400_suggests_capability_discovery(self):
+        for status_code in (400, 401, 429):
+            with self.subTest(status_code=status_code), patch('httpx.post', return_value=httpx.Response(
+                    status_code, json={'message': 'secret'})) as post:
+                status, result = self.run_cli(['search', 'query', '--tag', 'code.doc'])
+                self.assertEqual(status, 1)
+                self.assertNotIn('secret', str(result))
+                if status_code == 400:
+                    self.assertIn('hermes anysearch domains --domain code', result['hint'])
+                    self.assertIn('--params', result['hint'])
+                else:
+                    self.assertNotIn('hint', result)
+                self.assertEqual(post.call_count, 1)
+        with patch('httpx.post', return_value=httpx.Response(400, json={})):
+            self.assertNotIn('hint', self.run_cli(['search', 'query'])[1])
+
 
 if __name__ == '__main__':
     unittest.main()

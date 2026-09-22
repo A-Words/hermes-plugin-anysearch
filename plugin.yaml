@@ -1,7 +1,7 @@
 manifest_version: 1
 name: anysearch
-version: 1.1.0
-description: "AnySearch web search + extract (REST /v1/search with format=markdown + /v1/extract), plus two fallback chains: Exa→AnySearch for search and Firecrawl→AnySearch for extract. ANYSEARCH_API_KEY optional: anonymous tier works, a free key raises the quota to 1000 requests/day."
+version: 1.2.0
+description: "AnySearch web search and extraction, vertical search and capability discovery via the anysearch CLI and vertical-search skill, plus Exa→AnySearch and Firecrawl→AnySearch fallback chains. ANYSEARCH_API_KEY is optional."
 author: vollegrewar
 kind: backend
 provides_web_providers:

@@ -21,8 +21,10 @@ _SEARCH_FORMAT = "markdown"
 class AnySearchError(RuntimeError):
     """Safe diagnostic: never include response bodies or transport exception text."""
 
-    def __init__(self, message: str, *, fallback: bool = False, request_id=None):
+    def __init__(self, message: str, *, fallback: bool = False, request_id=None,
+                 status_code: int | None = None):
         self.fallback = fallback
+        self.status_code = status_code
         self.request_id = None
         if isinstance(request_id, str):
             try:
@@ -79,6 +81,7 @@ class AnySearchClient:
                 f"AnySearch HTTP {status}: {descriptions.get(status, 'request failed')}",
                 fallback=status in (404, 405, 408) or status >= 500,
                 request_id=request_id,
+                status_code=status,
             )
         try:
             text = resp.text.strip()

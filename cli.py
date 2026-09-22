@@ -53,6 +53,13 @@ def handle_command(args) -> int:
             raise ValueError("unknown AnySearch command")
     except (AnySearchError, ValueError) as exc:
         result = {"success": False, "error": str(exc)}
+        if (isinstance(exc, AnySearchError) and exc.status_code == 400
+                and args.anysearch_command == "search" and args.tag):
+            domain = args.tag.split(".", 1)[0]
+            result["hint"] = (
+                f"Run 'hermes anysearch domains --domain {domain}' to check the tag's "
+                "required parameters, then supply them with --params."
+            )
     except Exception:
         result = {"success": False, "error": "Unexpected AnySearch command failure"}
     print(json.dumps(result, ensure_ascii=False))
