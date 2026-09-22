@@ -38,13 +38,13 @@ class AnySearchClient:
 
     def __init__(self, key_supplier: Callable[[], str]):
         # Resolve per request, under the caller's active Hermes profile.
-        self.key = key_supplier
+        self._key_supplier = key_supplier
 
     def _post(self, path: str, payload: Dict[str, Any], timeout: float) -> Dict[str, Any]:
         import httpx
 
         headers = {"Content-Type": "application/json"}
-        key = self.key()
+        key = self._key_supplier()
         if key:
             headers["Authorization"] = "Bearer " + key
         if path == "/mcp":
@@ -130,19 +130,19 @@ class AnySearchClient:
             })
         return {"success": True, "data": {"web": hits}}
 
-    def _extract_rest(self, url: str) -> tuple:
+    def _extract_rest(self, url: str) -> tuple[str, str]:
         """Read a document from the official REST extract endpoint."""
         raw = self._post("/v1/extract", {"url": url}, _EXTRACT_TIMEOUT)
         return self._document(raw["data"])
 
     @staticmethod
-    def _document(data: dict) -> tuple:
+    def _document(data: dict) -> tuple[str, str]:
         title, content = data.get("title", ""), data.get("content")
         if not isinstance(title, str) or not isinstance(content, str) or not content.strip():
             raise AnySearchError("AnySearch returned empty or invalid content", fallback=True)
         return title, content
 
-    def _extract_mcp(self, url: str) -> tuple:
+    def _extract_mcp(self, url: str) -> tuple[str, str]:
         """MCP fallback. NOTE: ``result.content[].text`` is a JSON *string*."""
         data = self._post("/mcp", {
             "jsonrpc": "2.0", "id": 1, "method": "tools/call",
@@ -177,7 +177,7 @@ class AnySearchClient:
             return self._document(inner)
         raise AnySearchError("AnySearch MCP returned empty content")
 
-    def extract_one(self, url: str) -> tuple:
+    def extract_one(self, url: str) -> tuple[str, str]:
         try:
             return self._extract_rest(url)
         except AnySearchError as exc:
