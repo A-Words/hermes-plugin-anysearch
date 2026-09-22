@@ -74,6 +74,33 @@ Hermes' plugin scanner follows junctions/symlinks, so one checkout serves every
 profile. Note that `plugins.enabled` and `.env` stay per-profile: a new profile
 still needs `hermes plugins enable anysearch` and its own `ANYSEARCH_API_KEY`.
 
+## Vertical search and capability discovery
+
+With the plugin enabled, use a Hermes version that supports
+`register_cli_command` and `register_skill` to access the advanced workflow:
+
+```bash
+hermes anysearch domains --domain code
+hermes anysearch domains --domain code --domain finance
+hermes anysearch search "Go context cancellation documentation" --tag code.doc --params '{"library":"golang"}' --limit 5 --language en
+```
+
+Discover definitions first, then choose a returned `sub_domain` and its parameters.
+`--tag`, `--params` (JSON object), `--zone cn|intl`, and `--language` are optional.
+The commands print JSON; runtime errors exit 1, argument errors exit 2. Searches
+return `data.web`; capability discovery returns `data.domains`. An empty domain
+list is a valid response for unknown domains. Commands call AnySearch directly.
+
+In a Hermes conversation, ask the agent to load
+`skill_view("anysearch:vertical-search")` and follow the workflow. Plugin skills
+require explicit loading and do not appear in the default available-skills index.
+Terminal execution requires Hermes and this plugin in that terminal environment.
+For a named profile, use `hermes -p PROFILE anysearch ...`; the commands use the
+profile's normal `ANYSEARCH_API_KEY` lookup. Older Hermes versions without these
+registration APIs retain the existing web providers only.
+
+See [development notes](docs/development.md) for the API mapping and validation commands.
+
 ## Notes from testing against the live API
 
 - `/v1/search` returns both `snippet` and `content`, but `content` is an

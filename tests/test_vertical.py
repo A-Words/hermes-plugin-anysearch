@@ -1,0 +1,98 @@
+"""Offline vertical search and CLI contracts."""
+import argparse
+import contextlib
+import io
+import json
+import unittest
+from unittest.mock import patch
+
+import httpx
+
+import cli
+from client import AnySearchClient, AnySearchError
+
+
+class VerticalTests(unittest.TestCase):
+    def setUp(self):
+        self.client = AnySearchClient(lambda: 'test-key')
+
+    def test_search_options_and_legacy_payload(self):
+        with patch('httpx.post', return_value=httpx.Response(200, json={'code': 0, 'data': {'results': []}})) as post:
+            self.client.search('query', 3, tag='code.doc', params={'library': 'golang'}, zone='intl', language='en')
+            self.assertEqual(post.call_args.kwargs['json'], {
+                'query': 'query', 'max_results': 3, 'format': 'markdown', 'tag': 'code.doc',
+                'params': {'library': 'golang'}, 'zone': 'intl', 'language': 'en'})
+            self.client.search('query', 3)
+            self.assertEqual(post.call_args.kwargs['json'], {'query': 'query', 'max_results': 3, 'format': 'markdown'})
+
+    def test_invalid_options_do_not_request(self):
+        with patch('httpx.post') as post:
+            for opts in ({'tag': 'code'}, {'params': []}, {'params': {'x': float('nan')}},
+                         {'zone': 'other'}, {'language': ''}):
+                with self.subTest(opts=opts), self.assertRaises(ValueError):
+                    self.client.search('query', **opts)
+            post.assert_not_called()
+
+    def test_domain_query_and_definitions(self):
+        domains = [{'domain': 'code', 'sub_domains': [{'sub_domain': 'code.doc',
+                    'params': {'library': {'required': True, 'description': 'Library name'}}}]}]
+        with patch('httpx.get', return_value=httpx.Response(200, json={'code': 0, 'data': {'domains': domains}})) as get:
+            self.assertEqual(self.client.sub_domains(['code', 'finance'])['data']['domains'], domains)
+            self.assertEqual(get.call_args.kwargs['params'], [('domain', 'code'), ('domain', 'finance')])
+            self.assertEqual(get.call_args.kwargs['headers']['Authorization'], 'Bearer test-key')
+            self.assertNotIn('json', get.call_args.kwargs)
+
+    def test_domain_response_errors_and_unknown_domain(self):
+        with patch('httpx.get') as get:
+            get.return_value = httpx.Response(200, json={'code': 0, 'data': {'domains': []}})
+            self.assertEqual(self.client.sub_domains(['unknown'])['data']['domains'], [])
+            for data in ({}, {'domains': {}}, {'domains': [None]},
+                         {'domains': [{'domain': 'code', 'sub_domains': [None]}]}):
+                get.return_value = httpx.Response(200, json={'code': 0, 'data': data})
+                with self.subTest(data=data), self.assertRaises(AnySearchError):
+                    self.client.sub_domains(['code'])
+            get.return_value = httpx.Response(429, json={'message': 'secret'})
+            with self.assertRaisesRegex(AnySearchError, 'HTTP 429'):
+                self.client.sub_domains(['code'])
+
+    def test_invalid_domains_do_not_request(self):
+        with patch('httpx.get') as get:
+            for domains in ([], [''], ['code,finance'], 'code'):
+                with self.subTest(domains=domains), self.assertRaises(ValueError):
+                    self.client.sub_domains(domains)
+            get.assert_not_called()
+
+    def run_cli(self, argv):
+        parser = argparse.ArgumentParser()
+        cli.setup_parser(parser)
+        args = parser.parse_args(argv)
+        output = io.StringIO()
+        with patch.object(cli, '_key', return_value=''), contextlib.redirect_stdout(output):
+            status = cli.handle_command(args)
+        return status, json.loads(output.getvalue())
+
+    def test_cli_search_and_domains(self):
+        with patch('httpx.post', return_value=httpx.Response(200, json={'code': 0, 'data': {'results': []}})) as post:
+            status, result = self.run_cli(['search', 'query', '--tag', 'code.doc', '--params', '{"library":"golang"}'])
+            self.assertEqual(status, 0)
+            self.assertTrue(result['success'])
+            self.assertEqual(post.call_args.kwargs['json']['params'], {'library': 'golang'})
+        with patch('httpx.get', return_value=httpx.Response(200, json={'code': 0, 'data': {'domains': []}})) as get:
+            self.assertEqual(self.run_cli(['domains', '--domain', 'code', '--domain', 'finance'])[0], 0)
+            self.assertEqual(get.call_args.kwargs['params'], [('domain', 'code'), ('domain', 'finance')])
+
+    def test_cli_errors(self):
+        with patch('httpx.post', return_value=httpx.Response(401, json={'message': 'secret'})):
+            status, result = self.run_cli(['search', 'query'])
+            self.assertEqual(status, 1)
+            self.assertFalse(result['success'])
+            self.assertNotIn('secret', result['error'])
+        for argv in (['search', 'q', '--params', '[]'], ['search', 'q', '--limit', '11'],
+                     ['domains'], ['search', 'q', '--params', '{"x": NaN}']):
+            with self.subTest(argv=argv), contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as error:
+                self.run_cli(argv)
+            self.assertEqual(error.exception.code, 2)
+
+
+if __name__ == '__main__':
+    unittest.main()

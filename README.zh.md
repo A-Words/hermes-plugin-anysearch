@@ -69,6 +69,29 @@ Hermes 的插件扫描器能识别联接，一份代码即可服务所有 profil
 注意 `plugins.enabled` 与 `.env` 仍是 per-profile 的：新 profile 仍需
 `hermes plugins enable anysearch` 和独立配置的 `ANYSEARCH_API_KEY`。
 
+## 垂直搜索与能力查询
+
+启用插件后，在支持 `register_cli_command` 和 `register_skill` 的 Hermes 中运行：
+
+```bash
+hermes anysearch domains --domain code
+hermes anysearch domains --domain code --domain finance
+hermes anysearch search "Go context cancellation documentation" --tag code.doc --params '{"library":"golang"}' --limit 5 --language en
+```
+
+先查询能力定义，再选择返回的 `sub_domain` 及其参数。
+`--tag`、`--params`（JSON 对象）、`--zone cn|intl` 和 `--language` 都是可选项。
+命令输出 JSON；运行失败退出码为 1，参数错误为 2。搜索结果位于 `data.web`，
+能力定义位于 `data.domains`；未知领域返回空列表属于正常响应。命令直接调用 AnySearch。
+
+在 Hermes 会话中，让 Agent 加载 `skill_view("anysearch:vertical-search")` 后执行流程。
+插件 Skill 需要显式加载，不会进入默认的可用 Skill 索引。
+执行命令的终端环境必须安装 Hermes 和此插件。命名 Profile 使用
+`hermes -p PROFILE anysearch ...`，凭据沿用该 Profile 的 `ANYSEARCH_API_KEY` 配置。
+缺少上述注册接口的旧版 Hermes 仍可使用原有 Web Provider。
+
+接口映射与验证命令见[开发说明](docs/development.md)。
+
 ## 实测要点
 
 - `/v1/search` 同时返回 `snippet` 和 `content`，但 `content` 是摘要：

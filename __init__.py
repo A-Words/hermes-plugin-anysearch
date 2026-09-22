@@ -12,6 +12,8 @@ package, so fall back to the sibling module) — same pattern as browser-obscura
 
 from __future__ import annotations
 
+from pathlib import Path
+
 try:
     from .provider import (
         AnySearchProvider,
@@ -31,3 +33,14 @@ def register(ctx) -> None:
     ctx.register_web_search_provider(AnySearchProvider())
     ctx.register_web_search_provider(ExaAnySearchProvider())
     ctx.register_web_search_provider(FirecrawlAnySearchProvider())
+    if __package__:
+        from .cli import setup_parser, handle_command
+    else:
+        from cli import setup_parser, handle_command
+    # Older Hermes versions can still use the web providers.
+    if callable(getattr(ctx, "register_cli_command", None)):
+        ctx.register_cli_command("anysearch", "Search AnySearch and discover domain capabilities",
+                                 setup_parser, handle_command)
+    if callable(getattr(ctx, "register_skill", None)):
+        ctx.register_skill("vertical-search", Path(__file__).parent / "skills" / "vertical-search" / "SKILL.md",
+                           description="Discover AnySearch capabilities and run domain-specific searches")

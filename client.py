@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from typing import Any, Callable, Dict, List
 from uuid import UUID
 
@@ -41,6 +42,9 @@ class AnySearchClient:
         self._key_supplier = key_supplier
 
     def _post(self, path: str, payload: Dict[str, Any], timeout: float) -> Dict[str, Any]:
+        return self._request(path, timeout, payload=payload)
+
+    def _request(self, path: str, timeout: float, *, payload=None, params=None) -> Dict[str, Any]:
         import httpx
 
         headers = {"Content-Type": "application/json"}
@@ -50,10 +54,14 @@ class AnySearchClient:
         if path == "/mcp":
             headers["Accept"] = "application/json, text/event-stream"
         try:
-            resp = httpx.post(
-                ANYSEARCH_API_BASE + path, json=payload, headers=headers,
-                timeout=timeout, follow_redirects=True,
-            )
+            if payload is None:
+                resp = httpx.get(ANYSEARCH_API_BASE + path, params=params, headers=headers,
+                                 timeout=timeout, follow_redirects=True)
+            else:
+                resp = httpx.post(
+                    ANYSEARCH_API_BASE + path, json=payload, headers=headers,
+                    timeout=timeout, follow_redirects=True,
+                )
         except httpx.RequestError as exc:
             kind = "timeout" if isinstance(exc, httpx.TimeoutException) else "network failure"
             raise AnySearchError(f"AnySearch {kind}", fallback=True) from None
@@ -104,14 +112,52 @@ class AnySearchClient:
                                      request_id=raw.get("request_id"))
         return raw
 
-    def search(self, query: str, limit: int = 5) -> Dict[str, Any]:
+    def sub_domains(self, domains: List[str]) -> Dict[str, Any]:
+        """Discover capabilities for explicit domains; unknown domains may return []."""
+        if (not isinstance(domains, list) or not domains
+                or any(not isinstance(d, str) or not d.strip() or "," in d for d in domains)):
+            raise ValueError("domains must be a non-empty list of individual domain names")
+        raw = self._request("/v1/sub-domains", _SEARCH_TIMEOUT,
+                            params=[("domain", d.strip()) for d in dict.fromkeys(domains)])
+        entries = raw["data"].get("domains")
+        if not isinstance(entries, list):
+            raise AnySearchError("AnySearch returned invalid domain definitions")
+        for entry in entries:
+            if (not isinstance(entry, dict) or not isinstance(entry.get("domain"), str)
+                    or not isinstance(entry.get("sub_domains"), list)):
+                raise AnySearchError("AnySearch returned invalid domain definitions")
+            for sub in entry["sub_domains"]:
+                if (not isinstance(sub, dict) or not isinstance(sub.get("sub_domain"), str)
+                        or ("params" in sub and not isinstance(sub["params"], dict))):
+                    raise AnySearchError("AnySearch returned invalid sub-domain definitions")
+        return {"success": True, "data": {"domains": entries}}
+
+    def search(self, query: str, limit: int = 5, *, tag: str | None = None,
+               params: Dict[str, Any] | None = None, zone: str | None = None,
+               language: str | None = None) -> Dict[str, Any]:
+        if not isinstance(query, str) or not query.strip():
+            raise ValueError("query must be a non-empty string")
+        if tag is not None and (not isinstance(tag, str) or not re.fullmatch(r"[\w-]+\.[\w-]+", tag)):
+            raise ValueError("tag must have the form domain.sub_domain")
+        if params is not None and not isinstance(params, dict):
+            raise ValueError("params must be a JSON object")
+        if params is not None:
+            try:
+                json.dumps(params, allow_nan=False)
+            except (ValueError, TypeError):
+                raise ValueError("params must contain JSON-compatible values") from None
+        if zone is not None and zone not in ("cn", "intl"):
+            raise ValueError("zone must be cn or intl")
+        if language is not None and (not isinstance(language, str) or not language.strip()):
+            raise ValueError("language must be a non-empty string")
+        payload = {"query": query, "max_results": max(1, min(int(limit or 5), 10)),
+                   "format": _SEARCH_FORMAT}
+        for name, value in (("tag", tag), ("params", params), ("zone", zone), ("language", language)):
+            if value is not None:
+                payload[name] = value
         raw = self._post(
             "/v1/search",
-            {
-                "query": query,
-                "max_results": max(1, min(int(limit or 5), 10)),
-                "format": _SEARCH_FORMAT,
-            },
+            payload,
             _SEARCH_TIMEOUT,
         )
         results = raw["data"].get("results")
