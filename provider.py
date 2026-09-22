@@ -38,7 +38,6 @@ AnySearch API notes, verified live 2026-09:
 from __future__ import annotations
 
 import inspect
-import json
 import logging
 from typing import Any, Dict, List
 
@@ -46,144 +45,17 @@ from agent.web_search_provider import WebSearchProvider, get_provider_env
 
 logger = logging.getLogger(__name__)
 
-ANYSEARCH_API_BASE = "https://api.anysearch.com"
-_SEARCH_TIMEOUT = 30.0
-_EXTRACT_TIMEOUT = 60.0
-# `content` under format=markdown is a structured abstract (title/url + excerpt);
-# longer and better-shape than `snippet` (measured 222-345 chars vs 100).
-_SEARCH_FORMAT = "markdown"
-
-
-class _AnySearchClient:
-    """Thin REST client for AnySearch. No key required (anonymous tier)."""
-
-    @staticmethod
-    def key() -> str:
-        """config-aware lookup: os.environ, then ``~/.hermes/.env``."""
-        return get_provider_env("ANYSEARCH_API_KEY")
-
-    def _post(self, path: str, payload: Dict[str, Any], timeout: float) -> Dict[str, Any]:
-        import httpx
-
-        headers = {"Content-Type": "application/json"}
-        key = self.key()
-        if key:
-            headers["Authorization"] = "Bearer " + key
-        resp = httpx.post(
-            ANYSEARCH_API_BASE + path, json=payload, headers=headers,
-            timeout=timeout, follow_redirects=True,
-        )
-        resp.raise_for_status()
-        text = (resp.text or "").strip()
-        if text.startswith("data:"):  # streamable-HTTP SSE framing (MCP path only)
-            for line in text.splitlines():
-                line = line.strip()
-                if line.startswith("data:"):
-                    return json.loads(line[5:].strip())
-        return json.loads(text)
-
-    def search(self, query: str, limit: int = 5) -> Dict[str, Any]:
-        raw = self._post(
-            "/v1/search",
-            {
-                "query": query,
-                "max_results": max(1, min(int(limit or 5), 10)),
-                "format": _SEARCH_FORMAT,
-            },
-            _SEARCH_TIMEOUT,
-        )
-        results = ((raw.get("data") or {}).get("results")) or []
-        hits = []
-        for i, r in enumerate(results):
-            hits.append({
-                "title": r.get("title") or "",
-                "url": r.get("url") or "",
-                # markdown-mode `content` is the richer field; snippet is the fallback.
-                "description": r.get("content") or r.get("snippet") or "",
-                "position": i + 1,
-            })
-        return {"success": True, "data": {"web": hits}}
-
-    def _extract_rest(self, url: str) -> tuple:
-        """Official REST extract endpoint — ~2x faster than the MCP tool."""
-        raw = self._post("/v1/extract", {"url": url}, _EXTRACT_TIMEOUT)
-        d = raw.get("data") or {}
-        return d.get("title") or "", d.get("content") or ""
-
-    def _extract_mcp(self, url: str) -> tuple:
-        """MCP fallback. NOTE: ``result.content[].text`` is a JSON *string*."""
-        import httpx
-
-        headers = {
-            "Content-Type": "application/json",
-            "Accept": "application/json, text/event-stream",
-        }
-        key = self.key()
-        if key:
-            headers["Authorization"] = "Bearer " + key
-        resp = httpx.post(
-            ANYSEARCH_API_BASE + "/mcp",
-            json={"jsonrpc": "2.0", "id": 1, "method": "tools/call",
-                  "params": {"name": "extract", "arguments": {"url": url}}},
-            headers=headers, timeout=_EXTRACT_TIMEOUT, follow_redirects=True,
-        )
-        resp.raise_for_status()
-        text_body = (resp.text or "").strip()
-        if text_body.startswith("data:"):
-            for line in text_body.splitlines():
-                line = line.strip()
-                if line.startswith("data:"):
-                    text_body = line[5:].strip()
-                    break
-        data = json.loads(text_body)
-        text = ""
-        for item in (data.get("result") or {}).get("content") or []:
-            if item.get("type") == "text":
-                text = item.get("text") or ""
-                break
-        title, content = "", text
-        try:  # second parse: the MCP text field is itself a JSON document
-            inner = json.loads(text)
-            if isinstance(inner, dict):
-                content = inner.get("content") or text
-                title = inner.get("title") or ""
-        except (ValueError, TypeError):
-            pass
-        return title, content
-
-    def extract_one(self, url: str) -> tuple:
-        try:
-            title, content = self._extract_rest(url)
-            if content:
-                return title, content
-            logger.info("AnySearch REST extract returned empty for %s; trying MCP", url)
-        except Exception as exc:  # noqa: BLE001
-            logger.info("AnySearch REST extract failed for %s (%s); trying MCP", url, exc)
-        return self._extract_mcp(url)
-
-    def extract(self, urls: List[str]) -> List[Dict[str, Any]]:
-        docs = []
-        for url in urls:
-            try:
-                title, content = self.extract_one(url)
-                docs.append({
-                    "url": url, "title": title, "content": content,
-                    "raw_content": content, "metadata": {"sourceURL": url},
-                })
-            except Exception as exc:  # noqa: BLE001 — per-URL failure shape
-                logger.warning("AnySearch extract failed for %s: %s", url, exc)
-                docs.append({
-                    "url": url, "title": "", "content": "", "raw_content": "",
-                    "error": str(exc), "metadata": {"sourceURL": url},
-                })
-        return docs
+if __package__:
+    from .client import AnySearchClient, AnySearchError
+else:
+    from client import AnySearchClient, AnySearchError
 
 
 class AnySearchProvider(WebSearchProvider):
     """AnySearch alone: agent-native search with 17 vertical domains."""
 
     def __init__(self) -> None:
-        self._client = _AnySearchClient()
+        self._client = AnySearchClient(lambda: get_provider_env("ANYSEARCH_API_KEY"))
 
     @property
     def name(self) -> str:
@@ -212,8 +84,9 @@ class AnySearchProvider(WebSearchProvider):
             logger.info("AnySearch search: '%s' (limit=%d)", query, limit)
             return self._client.search(query, limit)
         except Exception as exc:  # noqa: BLE001
-            logger.warning("AnySearch search error: %s", exc)
-            return {"success": False, "error": f"AnySearch search failed: {exc}"}
+            message = str(exc) if isinstance(exc, AnySearchError) else "Unexpected AnySearch search failure"
+            logger.warning("AnySearch search error: %s", message)
+            return {"success": False, "error": message}
 
     def extract(self, urls: List[str], **kwargs: Any) -> List[Dict[str, Any]]:
         return self._client.extract(urls)

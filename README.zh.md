@@ -82,6 +82,19 @@ Hermes 的插件扫描器能识别联接，一份代码即可服务所有 profil
 
 ## 测试
 
+离线客户端回归（Python 环境安装 `httpx` 即可，无需 Hermes、API Key 或联网）：
+
+```bash
+python -m unittest discover -s tests -p test_client.py -v
+```
+
+共享客户端 `client.py` 会校验 REST 业务码和响应结构。空搜索列表属于正常结果，
+缺少结果字段或提取正文为空则报错。仅在网络异常、HTTP 404/405/408、5xx，
+或 REST 内容格式错误、正文为空时尝试 MCP；其他 HTTP 客户端错误和业务失败
+不触发 MCP 回退。MCP 协议错误和工具错误不会被当作网页正文。
+错误诊断省略响应正文，仅保留有效 UUID 请求 ID，避免泄露额度错误中可能包含的凭据。
+
+以下现有脚本是需要联网的冒烟检查。
 用 Hermes 的 venv Python 运行：
 
 ```bash

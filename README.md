@@ -90,6 +90,23 @@ still needs `hermes plugins enable anysearch` and its own `ANYSEARCH_API_KEY`.
 
 ## Tests
 
+Offline client regressions (Python with `httpx` installed; no Hermes installation,
+API key, or network access required):
+
+```bash
+python -m unittest discover -s tests -p test_client.py -v
+```
+
+The shared client in `client.py` validates REST business codes and response
+shapes before the provider returns success. Empty search result lists are valid;
+missing results and empty extracted content are errors. Extraction tries MCP
+only after transport failures, HTTP 404/405/408 or 5xx, or malformed/empty REST
+content. Other HTTP client errors and unsuccessful business responses do not
+trigger MCP fallback. MCP protocol and tool errors are never returned as page
+content. Error diagnostics omit response bodies and retain valid UUID request
+IDs, because quota error bodies can contain credentials.
+
+The existing scripts below are live smoke checks and require network access.
 Run with the Hermes venv Python:
 
 ```bash
