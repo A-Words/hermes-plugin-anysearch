@@ -203,4 +203,3 @@ class AnySearchClient:
                     "error": message, "metadata": {"sourceURL": url},
                 })
         return docs
-
