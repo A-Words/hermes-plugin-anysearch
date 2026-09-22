@@ -93,6 +93,23 @@ class VerticalTests(unittest.TestCase):
                 self.run_cli(argv)
             self.assertEqual(error.exception.code, 2)
 
+    def test_local_validation_error_has_no_capability_hint(self):
+        with patch('httpx.post') as post:
+            status, result = self.run_cli(['search', 'query', '--tag', 'codedoc'])
+            self.assertEqual(status, 1)
+            self.assertFalse(result['success'])
+            self.assertIn('domain.sub_domain', result['error'])
+            self.assertNotIn('hint', result)
+            post.assert_not_called()
+
+    def test_domains_400_has_no_search_hint(self):
+        with patch('httpx.get', return_value=httpx.Response(400, json={})):
+            status, result = self.run_cli(['domains', '--domain', 'code'])
+            self.assertEqual(status, 1)
+            self.assertFalse(result['success'])
+            self.assertIn('HTTP 400', result['error'])
+            self.assertNotIn('hint', result)
+
     def test_tagged_search_400_suggests_capability_discovery(self):
         for status_code in (400, 401, 429):
             with self.subTest(status_code=status_code), patch('httpx.post', return_value=httpx.Response(

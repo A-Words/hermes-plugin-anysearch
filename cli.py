@@ -41,6 +41,22 @@ def _key() -> str:
     return get_provider_env("ANYSEARCH_API_KEY")
 
 
+def _capability_hint(args: argparse.Namespace, exc: Exception) -> str | None:
+    """Suggest discovery only for a tagged search rejected with HTTP 400."""
+    status_code = getattr(exc, "status_code", None)
+    command = getattr(args, "anysearch_command", None)
+    tag = getattr(args, "tag", None)
+    if not isinstance(exc, AnySearchError) or status_code != 400 or command != "search":
+        return None
+    if not isinstance(tag, str) or not tag:
+        return None
+    domain = tag.split(".", 1)[0]
+    return (
+        f"Run 'hermes anysearch domains --domain {domain}' to check the tag's "
+        "required parameters, then supply them with --params."
+    )
+
+
 def handle_command(args) -> int:
     client = AnySearchClient(_key)
     try:
@@ -53,13 +69,9 @@ def handle_command(args) -> int:
             raise ValueError("unknown AnySearch command")
     except (AnySearchError, ValueError) as exc:
         result = {"success": False, "error": str(exc)}
-        if (isinstance(exc, AnySearchError) and exc.status_code == 400
-                and args.anysearch_command == "search" and args.tag):
-            domain = args.tag.split(".", 1)[0]
-            result["hint"] = (
-                f"Run 'hermes anysearch domains --domain {domain}' to check the tag's "
-                "required parameters, then supply them with --params."
-            )
+        hint = _capability_hint(args, exc)
+        if hint is not None:
+            result["hint"] = hint
     except Exception:
         result = {"success": False, "error": "Unexpected AnySearch command failure"}
     print(json.dumps(result, ensure_ascii=False))
