@@ -5,9 +5,9 @@ import argparse
 import json
 
 if __package__:
-    from .client import AnySearchClient, AnySearchError
+    from .client import AnySearchClient, AnySearchError, AnySearchInputError
 else:
-    from client import AnySearchClient, AnySearchError
+    from client import AnySearchClient, AnySearchError, AnySearchInputError
 
 
 def _json_object(value: str) -> dict:
@@ -66,8 +66,8 @@ def handle_command(args) -> int:
             result = client.search(args.query, args.limit, tag=args.tag, params=args.params,
                                    zone=args.zone, language=args.language)
         else:
-            raise ValueError("unknown AnySearch command")
-    except (AnySearchError, ValueError) as exc:
+            raise AnySearchInputError("unknown AnySearch command")
+    except (AnySearchError, AnySearchInputError) as exc:
         result = {"success": False, "error": str(exc)}
         hint = _capability_hint(args, exc)
         if hint is not None:

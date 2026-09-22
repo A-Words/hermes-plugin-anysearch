@@ -18,6 +18,10 @@ _EXTRACT_TIMEOUT = 60.0
 _SEARCH_FORMAT = "markdown"
 
 
+class AnySearchInputError(ValueError):
+    """A validated, safe-to-display input error."""
+
+
 class AnySearchError(RuntimeError):
     """Safe diagnostic: never include response bodies or transport exception text."""
 
@@ -119,9 +123,9 @@ class AnySearchClient:
         """Discover capabilities for explicit domains; unknown domains may return []."""
         if (not isinstance(domains, list) or not domains
                 or any(not isinstance(d, str) or not d.strip() or "," in d for d in domains)):
-            raise ValueError("domains must be a non-empty list of individual domain names")
+            raise AnySearchInputError("domains must be a non-empty list of individual domain names")
         raw = self._request("/v1/sub-domains", _SEARCH_TIMEOUT,
-                            params=[("domain", d.strip()) for d in dict.fromkeys(domains)])
+                            params=[("domain", d) for d in dict.fromkeys(d.strip() for d in domains)])
         entries = raw["data"].get("domains")
         if not isinstance(entries, list):
             raise AnySearchError("AnySearch returned invalid domain definitions")
@@ -139,20 +143,20 @@ class AnySearchClient:
                params: Dict[str, Any] | None = None, zone: str | None = None,
                language: str | None = None) -> Dict[str, Any]:
         if not isinstance(query, str) or not query.strip():
-            raise ValueError("query must be a non-empty string")
+            raise AnySearchInputError("query must be a non-empty string")
         if tag is not None and (not isinstance(tag, str) or not re.fullmatch(r"[\w-]+\.[\w-]+", tag)):
-            raise ValueError("tag must have the form domain.sub_domain")
+            raise AnySearchInputError("tag must have the form domain.sub_domain")
         if params is not None and not isinstance(params, dict):
-            raise ValueError("params must be a JSON object")
+            raise AnySearchInputError("params must be a JSON object")
         if params is not None:
             try:
                 json.dumps(params, allow_nan=False)
             except (ValueError, TypeError):
-                raise ValueError("params must contain JSON-compatible values") from None
+                raise AnySearchInputError("params must contain JSON-compatible values") from None
         if zone is not None and zone not in ("cn", "intl"):
-            raise ValueError("zone must be cn or intl")
+            raise AnySearchInputError("zone must be cn or intl")
         if language is not None and (not isinstance(language, str) or not language.strip()):
-            raise ValueError("language must be a non-empty string")
+            raise AnySearchInputError("language must be a non-empty string")
         payload = {"query": query, "max_results": max(1, min(int(limit or 5), 10)),
                    "format": _SEARCH_FORMAT}
         for name, value in (("tag", tag), ("params", params), ("zone", zone), ("language", language)):

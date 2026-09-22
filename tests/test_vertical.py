@@ -62,6 +62,23 @@ class VerticalTests(unittest.TestCase):
                     self.client.sub_domains(domains)
             get.assert_not_called()
 
+    def test_domains_are_normalized_before_deduplication(self):
+        with patch('httpx.get', return_value=httpx.Response(
+                200, json={'code': 0, 'data': {'domains': []}})) as get:
+            self.client.sub_domains(['code', ' code ', 'finance', 'code'])
+            self.assertEqual(get.call_args.kwargs['params'], [('domain', 'code'), ('domain', 'finance')])
+
+    def test_unexpected_value_error_is_sanitized(self):
+        parser = argparse.ArgumentParser()
+        cli.setup_parser(parser)
+        args = parser.parse_args(['search', 'query'])
+        output = io.StringIO()
+        with patch.object(cli, '_key', side_effect=ValueError('secret-marker')), contextlib.redirect_stdout(output):
+            status = cli.handle_command(args)
+        self.assertEqual(status, 1)
+        self.assertEqual(json.loads(output.getvalue()), {
+            'success': False, 'error': 'Unexpected AnySearch command failure'})
+
     def run_cli(self, argv):
         parser = argparse.ArgumentParser()
         cli.setup_parser(parser)
