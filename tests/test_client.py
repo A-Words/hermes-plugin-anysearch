@@ -89,6 +89,23 @@ class ClientTests(unittest.TestCase):
                 self.assertEqual(self.client.extract_one("https://example.com"), ("Page", "Body"))
                 self.assertEqual(self.mock.call_count, 2)
 
+    def test_invalid_business_codes_allow_extract_fallback(self):
+        for body in ({}, {"code": None}, {"code": "0"}, {"code": False}, {"code": 0.0}):
+            with self.subTest(body=body):
+                self.mock.reset_mock()
+                self.mock.side_effect = [self.response(body), self.mcp("Recovered body")]
+                self.assertEqual(self.client.extract_one("https://example.com"), ("", "Recovered body"))
+                self.assertEqual(self.mock.call_count, 2)
+
+    def test_nonzero_business_codes_do_not_fallback(self):
+        for code in (-1, 1):
+            with self.subTest(code=code):
+                self.mock.reset_mock()
+                self.mock.return_value = self.response({"code": code, "message": "secret"})
+                with self.assertRaisesRegex(AnySearchError, "unsuccessful response"):
+                    self.client.extract_one("https://example.com")
+                self.assertEqual(self.mock.call_count, 1)
+
     def test_mcp_errors_are_not_documents(self):
         failures = [self.mcp("secret", isError=True),
                     self.response({"id": 1, "error": {"message": "secret"}}),

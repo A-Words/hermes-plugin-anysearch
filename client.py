@@ -93,7 +93,10 @@ class AnySearchClient:
         if not isinstance(raw, dict):
             raise AnySearchError("AnySearch returned an invalid response", fallback=True)
         if path != "/mcp":
-            if type(raw.get("code")) is not int or raw["code"] != 0:
+            if type(raw.get("code")) is not int:
+                raise AnySearchError("AnySearch returned an invalid business code", fallback=True,
+                                     request_id=raw.get("request_id"))
+            if raw["code"] != 0:
                 raise AnySearchError("AnySearch returned an unsuccessful response",
                                      request_id=raw.get("request_id"))
             if not isinstance(raw.get("data"), dict):
