@@ -120,7 +120,7 @@ class AnySearchClient:
         return raw
 
     def sub_domains(self, domains: List[str]) -> Dict[str, Any]:
-        """Discover capabilities for explicit domains; unknown domains may return []."""
+        """Return successful capability definitions; preserve HTTP failures as errors."""
         if (not isinstance(domains, list) or not domains
                 or any(not isinstance(d, str) or not d.strip() or "," in d for d in domains)):
             raise AnySearchInputError("domains must be a non-empty list of individual domain names")

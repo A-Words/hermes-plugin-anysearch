@@ -88,8 +88,10 @@ hermes anysearch search "Go context cancellation documentation" --tag code.doc -
 Discover definitions first, then choose a returned `sub_domain` and its parameters.
 `--tag`, `--params` (JSON object), `--zone cn|intl`, and `--language` are optional.
 The commands print JSON; runtime errors exit 1, argument errors exit 2. Searches
-return `data.web`; capability discovery returns `data.domains`. An empty domain
-list is a valid response for unknown domains. Commands call AnySearch directly.
+return `data.web`; capability discovery returns `data.domains`. A successful empty
+list means no definitions were returned. Unsupported domain queries have also
+been observed to return HTTP 502; this is a discovery failure, not proof that a
+domain does not exist. Commands call AnySearch directly.
 
 In a Hermes conversation, ask the agent to load
 `skill_view("anysearch:search")` and follow the workflow. Plugin skills

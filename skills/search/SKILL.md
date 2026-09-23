@@ -16,8 +16,12 @@ Load this skill explicitly as `anysearch:search`.
    hermes anysearch domains --domain code
    ```
 
-   Repeat `--domain` to query several domains. An empty `data.domains` list means
-   no matching definitions were returned; do not invent capabilities.
+   Repeat `--domain` to query several domains. Check `success` first. Only a
+   successful response with an empty `data.domains` list means no matching
+   definitions were returned. Domain queries can fail with HTTP 502, including
+   queries for unsupported names; report discovery failure rather than assuming
+   the domain is absent. Do not invent tags or parameters. Ask for a known domain
+   or use an untagged general search if that still meets the user's goal.
 
 2. Select a returned `sub_domain` tag and supply its required parameters. For example,
    if `code.doc` is available with the `library` parameter:

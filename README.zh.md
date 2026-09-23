@@ -82,7 +82,9 @@ hermes anysearch search "Go context cancellation documentation" --tag code.doc -
 先查询能力定义，再选择返回的 `sub_domain` 及其参数。
 `--tag`、`--params`（JSON 对象）、`--zone cn|intl` 和 `--language` 都是可选项。
 命令输出 JSON；运行失败退出码为 1，参数错误为 2。搜索结果位于 `data.web`，
-能力定义位于 `data.domains`；未知领域返回空列表属于正常响应。命令直接调用 AnySearch。
+能力定义位于 `data.domains`；成功响应中的空列表表示未返回能力定义。
+实测部分不受支持的领域查询也会返回 HTTP 502，此时属于能力查询失败，
+不能据此判断领域不存在。命令直接调用 AnySearch。
 
 在 Hermes 会话中，让 Agent 加载 `skill_view("anysearch:search")` 后执行流程。
 插件 Skill 需要显式加载，不会进入默认的可用 Skill 索引。

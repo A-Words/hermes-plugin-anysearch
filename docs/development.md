@@ -19,7 +19,10 @@ success and 1 for runtime failures; argparse rejects invalid syntax with 2.
 | `sub_domains(domains)` | `GET /v1/sub-domains` | Repeated `domain` query parameters; returns the server's capability and parameter definitions |
 
 Search results retain the Hermes `success` / `data.web` shape. Domain discovery
-returns `success` / `data.domains`. Unknown domains may return an empty list.
+returns `success` / `data.domains`. A successful empty list is valid, but is not
+guaranteed for unknown domains. Some unsupported domain queries have returned
+HTTP 502 in live checks. Preserve that failure; do not translate it into an empty
+list or infer that the domain does not exist.
 The plugin validates basic shapes but does not freeze the service's evolving
 list of tags or capability-specific parameter requirements into a local enum.
 Consult capability definitions before constructing a vertical search.

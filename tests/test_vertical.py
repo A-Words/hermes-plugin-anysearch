@@ -47,10 +47,10 @@ class VerticalTests(unittest.TestCase):
             self.assertEqual(get.call_args.kwargs['headers']['Authorization'], 'Bearer test-key')
             self.assertNotIn('json', get.call_args.kwargs)
 
-    def test_domain_response_errors_and_unknown_domain(self):
+    def test_domain_response_errors_and_valid_empty_list(self):
         with patch('httpx.get') as get:
             get.return_value = httpx.Response(200, json={'code': 0, 'data': {'domains': []}})
-            self.assertEqual(self.client.sub_domains(['unknown'])['data']['domains'], [])
+            self.assertEqual(self.client.sub_domains(['code'])['data']['domains'], [])
             for data in ({}, {'domains': {}}, {'domains': [None]},
                          {'domains': [{'domain': 'code', 'sub_domains': [None]}]}):
                 get.return_value = httpx.Response(200, json={'code': 0, 'data': data})
@@ -131,6 +131,15 @@ class VerticalTests(unittest.TestCase):
             self.assertFalse(result['success'])
             self.assertIn('HTTP 400', result['error'])
             self.assertNotIn('hint', result)
+
+    def test_domains_502_remains_a_failure(self):
+        with patch('httpx.get', return_value=httpx.Response(502, json={'message': 'secret'})):
+            status, result = self.run_cli(['domains', '--domain', 'zzzz-notreal'])
+            self.assertEqual(status, 1)
+            self.assertFalse(result['success'])
+            self.assertIn('HTTP 502', result['error'])
+            self.assertNotIn('secret', result['error'])
+            self.assertNotIn('data', result)
 
     def test_tagged_search_400_suggests_capability_discovery(self):
         for status_code in (400, 401, 429):
