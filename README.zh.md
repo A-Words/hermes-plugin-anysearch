@@ -94,6 +94,33 @@ hermes anysearch search "Go context cancellation documentation" --tag code.doc -
 
 接口映射与验证命令见[开发说明](docs/development.md)。
 
+## 批量并行搜索
+
+将 UTF-8 JSON 数组保存为 `queries.json`，每条查询沿用单次搜索参数
+（`query`，以及可选的 `limit`、`tag`、`params`、`zone`、`language`）：
+
+```json
+[
+  {"query": "Go context cancellation", "tag": "code.doc", "params": {"library": "golang"}},
+  {"query": "Python asyncio examples", "tag": "code.snippet", "params": {"lang": "python"}}
+]
+```
+
+```bash
+hermes anysearch batch --input queries.json --concurrency 3
+```
+
+`--input -` 从标准输入读取 JSON。每批 1–20 条，默认并发 3，可设为 1–4。
+整批输入校验通过后才发送请求，输入最多 1,048,576 个字符。
+每条查询独立请求并按正常搜索消耗额度；并发上限不是每秒请求数限制，遇到限流可降低并发。
+
+`data.results` 按输入顺序返回，保留重复查询。每项包含从 0 开始的 `index`、`query`，
+以及成功时的 `success: true` 和 `data.web`，或失败时的 `success: false` 和 `error`。
+汇总字段为 `total`、`succeeded`、`failed`。只有全部成功时顶层 `success` 才为 true
+（空搜索结果也属于成功）；部分失败时退出码为 1，成功项仍保留。
+批量执行不自动重试，也不调用 Hermes rescue。每次请求沿用 30 秒 HTTP 超时配置，
+这不是整批任务的总时限。
+
 ## 实测要点
 
 - `/v1/search` 同时返回 `snippet` 和 `content`，但 `content` 是摘要：
@@ -111,6 +138,7 @@ hermes anysearch search "Go context cancellation documentation" --tag code.doc -
 
 ```bash
 python -m unittest discover -s tests -p test_client.py -v
+python -m unittest discover -s tests -p test_batch.py -v
 ```
 
 共享客户端 `client.py` 会校验 REST 业务码和响应结构。空搜索列表属于正常结果，

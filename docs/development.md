@@ -33,6 +33,24 @@ It requires a terminal environment containing Hermes, the enabled plugin and the
 intended profile. It does not install software or move credentials automatically.
 Registration is capability-checked so older Hermes hosts retain the web providers.
 
+## Batch execution
+
+`batch.py` provides `search_many(client, queries, concurrency=3)`. It validates
+the entire 1–20-item list before submitting work, using the same payload validator
+as single search. Batch limits must be integers from 1 to 10; unknown fields are
+rejected. Each query is copied before dispatch. A thread pool limits concurrent
+requests to 1–4, and each job receives a separate `contextvars.copy_context()` so
+the caller's scoped credential lookup remains available. The callback is still
+invoked per request; credentials are never cached by the batch executor.
+
+Each outcome carries its input index and query; successful empty results count
+as success. Errors are isolated per item and unexpected exception messages are
+sanitized. Results remain in input order. Top-level success requires every item
+to succeed; partial failures exit 1 while preserving all outcomes. Each request
+uses the existing HTTP timeout. There is no whole-batch deadline, automatic retry,
+or requests-per-second rate limiter. This is client-side concurrency over the
+single-query REST endpoint, not a server batch endpoint.
+
 ## Offline checks
 
 Install `httpx` in the development Python environment, then run from the plugin root:
@@ -40,6 +58,7 @@ Install `httpx` in the development Python environment, then run from the plugin 
 ```bash
 python -m unittest discover -s tests -p test_client.py -v
 python -m unittest discover -s tests -p test_vertical.py -v
+python -m unittest discover -s tests -p test_batch.py -v
 ```
 
 These tests mock HTTP and need no API key. Existing `test_provider.py`,

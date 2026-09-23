@@ -3,10 +3,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 
 if __package__:
+    from .batch import search_many, DEFAULT_CONCURRENCY, MAX_CONCURRENCY
     from .client import AnySearchClient, AnySearchError, AnySearchInputError
 else:
+    from batch import search_many, DEFAULT_CONCURRENCY, MAX_CONCURRENCY
     from client import AnySearchClient, AnySearchError, AnySearchInputError
 
 
@@ -33,6 +36,28 @@ def setup_parser(parser: argparse.ArgumentParser) -> None:
     search.add_argument("--params", type=_json_object, help="Capability parameters as a JSON object")
     search.add_argument("--zone", choices=("cn", "intl"))
     search.add_argument("--language", help="Preferred language, e.g. en or zh-CN")
+    batch = commands.add_parser("batch", help="Run a JSON list of searches concurrently")
+    batch.add_argument("--input", required=True, help="UTF-8 JSON file, or - for stdin")
+    batch.add_argument("--concurrency", type=int, choices=range(1, MAX_CONCURRENCY + 1),
+                       default=DEFAULT_CONCURRENCY)
+
+
+def _read_batch(source: str):
+    """Read bounded input; keep parse errors and file contents out of diagnostics."""
+    max_chars = 1_048_576
+    try:
+        if source == "-":
+            text = sys.stdin.read(max_chars + 1)
+        else:
+            with open(source, encoding="utf-8-sig") as stream:
+                text = stream.read(max_chars + 1)
+        if len(text) > max_chars:
+            raise AnySearchInputError("batch input exceeds 1,048,576 characters")
+        return json.loads(text.lstrip("\ufeff"))
+    except (OSError, UnicodeError):
+        raise AnySearchInputError("Could not read batch input as UTF-8 JSON") from None
+    except json.JSONDecodeError:
+        raise AnySearchInputError("batch input must be valid JSON") from None
 
 
 def _key() -> str:
@@ -65,6 +90,8 @@ def handle_command(args) -> int:
         elif args.anysearch_command == "search":
             result = client.search(args.query, args.limit, tag=args.tag, params=args.params,
                                    zone=args.zone, language=args.language)
+        elif args.anysearch_command == "batch":
+            result = search_many(client, _read_batch(args.input), concurrency=args.concurrency)
         else:
             raise AnySearchInputError("unknown AnySearch command")
     except (AnySearchError, AnySearchInputError) as exc:

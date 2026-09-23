@@ -142,6 +142,31 @@ class AnySearchClient:
     def search(self, query: str, limit: int = 5, *, tag: str | None = None,
                params: Dict[str, Any] | None = None, zone: str | None = None,
                language: str | None = None) -> Dict[str, Any]:
+        payload = self._search_payload(query, limit, tag=tag, params=params, zone=zone, language=language)
+        raw = self._post("/v1/search", payload, _SEARCH_TIMEOUT)
+        results = raw["data"].get("results")
+        if not isinstance(results, list):
+            raise AnySearchError("AnySearch response is missing results")
+        hits = []
+        for i, r in enumerate(results):
+            if (not isinstance(r, dict) or not isinstance(r.get("url"), str)
+                    or not r["url"].strip()
+                    or any(r.get(k) is not None and not isinstance(r[k], str)
+                           for k in ("title", "content", "snippet"))):
+                raise AnySearchError("AnySearch returned an invalid search result")
+            hits.append({
+                "title": r.get("title") or "",
+                "url": r.get("url") or "",
+                "description": r.get("content") or r.get("snippet") or "",
+                "position": i + 1,
+            })
+        return {"success": True, "data": {"web": hits}}
+
+    @staticmethod
+    def _search_payload(query: str, limit: int = 5, *, tag: str | None = None,
+                        params: Dict[str, Any] | None = None, zone: str | None = None,
+                        language: str | None = None) -> Dict[str, Any]:
+        """Validate and construct a request without performing I/O."""
         if not isinstance(query, str) or not query.strip():
             raise AnySearchInputError("query must be a non-empty string")
         if tag is not None and (not isinstance(tag, str) or not re.fullmatch(r"[\w-]+\.[\w-]+", tag)):
@@ -162,29 +187,7 @@ class AnySearchClient:
         for name, value in (("tag", tag), ("params", params), ("zone", zone), ("language", language)):
             if value is not None:
                 payload[name] = value
-        raw = self._post(
-            "/v1/search",
-            payload,
-            _SEARCH_TIMEOUT,
-        )
-        results = raw["data"].get("results")
-        if not isinstance(results, list):
-            raise AnySearchError("AnySearch response is missing results")
-        hits = []
-        for i, r in enumerate(results):
-            if (not isinstance(r, dict) or not isinstance(r.get("url"), str)
-                    or not r["url"].strip()
-                    or any(r.get(k) is not None and not isinstance(r[k], str)
-                           for k in ("title", "content", "snippet"))):
-                raise AnySearchError("AnySearch returned an invalid search result")
-            hits.append({
-                "title": r.get("title") or "",
-                "url": r.get("url") or "",
-                # markdown-mode `content` is the richer field; snippet is the fallback.
-                "description": r.get("content") or r.get("snippet") or "",
-                "position": i + 1,
-            })
-        return {"success": True, "data": {"web": hits}}
+        return payload
 
     def _extract_rest(self, url: str) -> tuple[str, str]:
         """Read a document from the official REST extract endpoint."""

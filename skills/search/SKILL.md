@@ -1,6 +1,6 @@
 ---
 name: search
-description: Discover AnySearch domain capabilities and run searches with explicit routing and parameters.
+description: Discover AnySearch domain capabilities and run individual or parallel searches with explicit routing and parameters.
 ---
 
 # AnySearch search
@@ -35,6 +35,19 @@ Load this skill explicitly as `anysearch:search`.
 
 3. Read the JSON `success` field and `data.web` results. Cite result URLs. Search
    descriptions are summaries; use Hermes `web_extract` when full page text is needed.
+
+For several independent questions, save a JSON array of query objects to a UTF-8
+file and run `hermes anysearch batch --input queries.json --concurrency 3`.
+Each object has `query` and optional `limit`, `tag`, `params`, `zone`, `language`.
+Discover capabilities first when using tags. Use at most 20 queries and concurrency
+1–4. The command also accepts `--input -` for JSON on stdin.
+
+Batch results are in `data.results`, ordered by input with zero-based `index` and
+the original `query`. Read each item's `success` and `data.web` or `error`.
+Top-level failure can mean partial success: keep useful successful results and
+correct or retry only the failed items when appropriate. Do not rerun the whole
+batch automatically. Each query consumes normal search quota; lower concurrency
+if rate limited. Batch dependent questions only after their prerequisites are known.
 
 The commands call AnySearch directly, without Hermes web-tool rescue. A runtime
 failure prints a JSON error and exits 1; invalid command syntax exits 2. Do not

@@ -103,6 +103,36 @@ registration APIs retain the existing web providers only.
 
 See [development notes](docs/development.md) for the API mapping and validation commands.
 
+## Batch parallel search
+
+Save a UTF-8 JSON array as `queries.json`. Each item uses the single-search
+parameters (`query`, optional `limit`, `tag`, `params`, `zone`, `language`):
+
+```json
+[
+  {"query": "Go context cancellation", "tag": "code.doc", "params": {"library": "golang"}},
+  {"query": "Python asyncio examples", "tag": "code.snippet", "params": {"lang": "python"}}
+]
+```
+
+```bash
+hermes anysearch batch --input queries.json --concurrency 3
+```
+
+Use `--input -` to read JSON from stdin. A batch contains 1–20 queries; concurrency
+defaults to 3 and accepts 1–4. All input is validated before any search is sent.
+Input is limited to 1,048,576 characters. Each query makes a separate search request
+and consumes normal search quota; concurrency is not a requests-per-second limit.
+Reduce concurrency if rate limited.
+
+`data.results` retains input order, including duplicate queries. Each entry has a
+zero-based `index`, `query`, and either `success: true` with `data.web` or
+`success: false` with `error`. Summary fields are `total`, `succeeded`, and `failed`.
+Top-level `success` is true only when every query succeeds (an empty search result
+is still successful). Partial failures exit 1 and preserve successful results.
+There are no automatic retries or Hermes rescue calls. Each request keeps the
+existing 30-second HTTP timeout; this is not a deadline for the whole batch.
+
 ## Notes from testing against the live API
 
 - `/v1/search` returns both `snippet` and `content`, but `content` is an
@@ -124,6 +154,7 @@ API key, or network access required):
 
 ```bash
 python -m unittest discover -s tests -p test_client.py -v
+python -m unittest discover -s tests -p test_batch.py -v
 ```
 
 The shared client in `client.py` validates REST business codes and response
