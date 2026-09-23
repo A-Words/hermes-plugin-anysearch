@@ -84,7 +84,7 @@ hermes anysearch search "Go context cancellation documentation" --tag code.doc -
 命令输出 JSON；运行失败退出码为 1，参数错误为 2。搜索结果位于 `data.web`，
 能力定义位于 `data.domains`；未知领域返回空列表属于正常响应。命令直接调用 AnySearch。
 
-在 Hermes 会话中，让 Agent 加载 `skill_view("anysearch:vertical-search")` 后执行流程。
+在 Hermes 会话中，让 Agent 加载 `skill_view("anysearch:search")` 后执行流程。
 插件 Skill 需要显式加载，不会进入默认的可用 Skill 索引。
 执行命令的终端环境必须安装 Hermes 和此插件。命名 Profile 使用
 `hermes -p PROFILE anysearch ...`，凭据沿用该 Profile 的 `ANYSEARCH_API_KEY` 配置。

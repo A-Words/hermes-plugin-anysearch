@@ -1,14 +1,14 @@
 ---
-name: vertical-search
+name: search
 description: Discover AnySearch domain capabilities and run searches with explicit routing and parameters.
 ---
 
-# AnySearch vertical search
+# AnySearch search
 
 Use this workflow when a task benefits from a specific source capability, such as
 library documentation, rather than a general web search. This plugin must be enabled
 and the terminal environment must have the Hermes CLI and this plugin installed.
-Load this skill explicitly as `anysearch:vertical-search`.
+Load this skill explicitly as `anysearch:search`.
 
 1. Discover the relevant domain's current capabilities and required parameters:
 

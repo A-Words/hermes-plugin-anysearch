@@ -42,5 +42,5 @@ def register(ctx) -> None:
         ctx.register_cli_command("anysearch", "Search AnySearch and discover domain capabilities",
                                  setup_parser, handle_command)
     if callable(getattr(ctx, "register_skill", None)):
-        ctx.register_skill("vertical-search", Path(__file__).parent / "skills" / "vertical-search" / "SKILL.md",
+        ctx.register_skill("search", Path(__file__).parent / "skills" / "search" / "SKILL.md",
                            description="Discover AnySearch capabilities and run domain-specific searches")

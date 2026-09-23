@@ -6,7 +6,7 @@
 supplies a credential callback, evaluated for each request. `provider.py` adapts
 this client to Hermes web search/extraction. `cli.py` exposes advanced search
 arguments through `ctx.register_cli_command`; `__init__.py` also registers the
-read-only `anysearch:vertical-search` skill using `ctx.register_skill`.
+read-only `anysearch:search` skill using `ctx.register_skill`.
 
 The web provider keeps `search(query, limit)`. Advanced options are keyword-only
 on the client and exposed by `hermes anysearch search`. No provider-wide tag is
@@ -25,7 +25,7 @@ list of tags or capability-specific parameter requirements into a local enum.
 Consult capability definitions before constructing a vertical search.
 
 The CLI calls AnySearch directly and does not invoke Hermes web-tool rescue.
-The bundled skill is explicitly loaded with `skill_view("anysearch:vertical-search")`.
+The bundled skill is explicitly loaded with `skill_view("anysearch:search")`.
 It requires a terminal environment containing Hermes, the enabled plugin and the
 intended profile. It does not install software or move credentials automatically.
 Registration is capability-checked so older Hermes hosts retain the web providers.

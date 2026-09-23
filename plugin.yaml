@@ -1,7 +1,7 @@
 manifest_version: 1
 name: anysearch
 version: 1.2.0
-description: "AnySearch web search and extraction, vertical search and capability discovery via the anysearch CLI and vertical-search skill, plus Exa→AnySearch and Firecrawl→AnySearch fallback chains. ANYSEARCH_API_KEY is optional."
+description: "AnySearch web search and extraction, vertical search and capability discovery via the anysearch CLI and search skill, plus Exa→AnySearch and Firecrawl→AnySearch fallback chains. ANYSEARCH_API_KEY is optional."
 author: vollegrewar
 kind: backend
 provides_web_providers:

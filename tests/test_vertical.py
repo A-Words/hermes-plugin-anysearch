@@ -3,10 +3,15 @@ import argparse
 import contextlib
 import io
 import json
+from pathlib import Path
+import sys
 import unittest
 from unittest.mock import patch
 
 import httpx
+
+# Support direct execution as well as unittest discovery, from any directory.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import cli
 from client import AnySearchClient, AnySearchError

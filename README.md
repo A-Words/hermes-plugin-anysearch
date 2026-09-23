@@ -92,7 +92,7 @@ return `data.web`; capability discovery returns `data.domains`. An empty domain
 list is a valid response for unknown domains. Commands call AnySearch directly.
 
 In a Hermes conversation, ask the agent to load
-`skill_view("anysearch:vertical-search")` and follow the workflow. Plugin skills
+`skill_view("anysearch:search")` and follow the workflow. Plugin skills
 require explicit loading and do not appear in the default available-skills index.
 Terminal execution requires Hermes and this plugin in that terminal environment.
 For a named profile, use `hermes -p PROFILE anysearch ...`; the commands use the
