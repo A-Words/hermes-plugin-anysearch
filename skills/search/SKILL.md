@@ -5,10 +5,13 @@ description: Discover AnySearch domain capabilities and run individual or parall
 
 # AnySearch search
 
-Use this workflow when a task benefits from a specific source capability, such as
-library documentation, rather than a general web search. This plugin must be enabled
+Use this workflow for general searches, domain-specific searches such as library
+documentation, or batches of independent queries. This plugin must be enabled
 and the terminal environment must have the Hermes CLI and this plugin installed.
-Load this skill explicitly as `anysearch:search`.
+Load this skill explicitly as `anysearch:search`. It covers individual
+searches and batches of independent queries. For general search, use
+`hermes anysearch search "your query"` without a tag. For domain-specific searches,
+follow the capability discovery workflow below.
 
 1. Discover the relevant domain's current capabilities and required parameters:
 

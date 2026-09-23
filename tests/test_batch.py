@@ -4,6 +4,7 @@ import contextlib
 from contextvars import ContextVar
 import io
 import json
+import sys
 import tempfile
 from pathlib import Path
 import threading
@@ -11,6 +12,9 @@ import unittest
 from unittest.mock import patch
 
 import httpx
+
+# Support direct execution as well as unittest discovery, from any directory.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import cli
 from batch import search_many
@@ -129,6 +133,25 @@ class BatchTests(unittest.TestCase):
                     self.assertEqual(status, 0)
                     self.assertEqual(result['data']['total'], 1)
                     self.assertEqual(post.call_args.kwargs['json']['params'], {'library': 'go'})
+
+    def test_cli_distinguishes_file_and_encoding_errors(self):
+        with tempfile.TemporaryDirectory() as directory:
+            missing = Path(directory) / 'missing.json'
+            invalid = Path(directory) / 'invalid.json'
+            invalid.write_bytes(b'\xff')
+            with patch('httpx.post') as post:
+                for path, message in ((missing, 'file not found'), (invalid, 'UTF-8 encoded')):
+                    with self.subTest(path=path):
+                        status, result = self.run_cli(['batch', '--input', str(path)])
+                        self.assertEqual(status, 1)
+                        self.assertIn(message, result['error'])
+                        self.assertNotIn(str(path), result['error'])
+                with patch('builtins.open', side_effect=PermissionError('secret-path')):
+                    status, result = self.run_cli(['batch', '--input', 'queries.json'])
+                    self.assertEqual(status, 1)
+                    self.assertIn('read permissions', result['error'])
+                    self.assertNotIn('secret-path', result['error'])
+                post.assert_not_called()
 
     def test_cli_failures_exit_nonzero(self):
         with patch('httpx.post', return_value=httpx.Response(429, json={'message': 'secret'})):

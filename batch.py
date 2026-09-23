@@ -32,7 +32,7 @@ def search_many(client: AnySearchClient, queries: list[dict[str, Any]], *,
         if type(limit) is not int or not 1 <= limit <= 10:
             raise AnySearchInputError(f'queries[{index}].limit must be an integer between 1 and 10')
         try:
-            client._search_payload(**query)
+            client.build_search_payload(**query)
         except AnySearchInputError as exc:
             raise AnySearchInputError(f'queries[{index}]: {exc}') from None
         prepared.append(deepcopy(query))

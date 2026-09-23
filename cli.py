@@ -54,8 +54,12 @@ def _read_batch(source: str):
         if len(text) > max_chars:
             raise AnySearchInputError("batch input exceeds 1,048,576 characters")
         return json.loads(text.lstrip("\ufeff"))
-    except (OSError, UnicodeError):
-        raise AnySearchInputError("Could not read batch input as UTF-8 JSON") from None
+    except FileNotFoundError:
+        raise AnySearchInputError("Batch input file not found; check --input path") from None
+    except OSError:
+        raise AnySearchInputError("Could not read batch input; check the path and read permissions") from None
+    except UnicodeError:
+        raise AnySearchInputError("Batch input must be UTF-8 encoded") from None
     except json.JSONDecodeError:
         raise AnySearchInputError("batch input must be valid JSON") from None
 

@@ -142,7 +142,7 @@ class AnySearchClient:
     def search(self, query: str, limit: int = 5, *, tag: str | None = None,
                params: Dict[str, Any] | None = None, zone: str | None = None,
                language: str | None = None) -> Dict[str, Any]:
-        payload = self._search_payload(query, limit, tag=tag, params=params, zone=zone, language=language)
+        payload = self.build_search_payload(query, limit, tag=tag, params=params, zone=zone, language=language)
         raw = self._post("/v1/search", payload, _SEARCH_TIMEOUT)
         results = raw["data"].get("results")
         if not isinstance(results, list):
@@ -163,7 +163,7 @@ class AnySearchClient:
         return {"success": True, "data": {"web": hits}}
 
     @staticmethod
-    def _search_payload(query: str, limit: int = 5, *, tag: str | None = None,
+    def build_search_payload(query: str, limit: int = 5, *, tag: str | None = None,
                         params: Dict[str, Any] | None = None, zone: str | None = None,
                         language: str | None = None) -> Dict[str, Any]:
         """Validate and construct a request without performing I/O."""

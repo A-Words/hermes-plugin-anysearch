@@ -43,4 +43,4 @@ def register(ctx) -> None:
                                  setup_parser, handle_command)
     if callable(getattr(ctx, "register_skill", None)):
         ctx.register_skill("search", Path(__file__).parent / "skills" / "search" / "SKILL.md",
-                           description="Discover AnySearch capabilities and run domain-specific searches")
+                           description="Discover AnySearch capabilities and run individual or parallel searches")

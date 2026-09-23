@@ -36,7 +36,8 @@ Registration is capability-checked so older Hermes hosts retain the web provider
 ## Batch execution
 
 `batch.py` provides `search_many(client, queries, concurrency=3)`. It validates
-the entire 1–20-item list before submitting work, using the same payload validator
+the entire 1–20-item list before submitting work, using the public `build_search_payload`
+validator
 as single search. Batch limits must be integers from 1 to 10; unknown fields are
 rejected. Each query is copied before dispatch. A thread pool limits concurrent
 requests to 1–4, and each job receives a separate `contextvars.copy_context()` so
