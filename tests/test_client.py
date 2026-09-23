@@ -1,9 +1,14 @@
 """Offline regressions: python -m unittest discover -s tests -p test_client.py -v."""
 import json
+from pathlib import Path
+import sys
 import unittest
 from unittest.mock import patch
 
 import httpx
+
+# Support direct execution as well as unittest discovery, from any directory.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from client import AnySearchClient, AnySearchError
 
